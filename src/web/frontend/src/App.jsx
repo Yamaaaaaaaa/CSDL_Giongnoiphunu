@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { UploadCloud, Search, Play, Filter, Mic2, Database } from 'lucide-react';
+import { Search, Play, Pause, Database, UploadCloud, CloudRain, Disc, Home, Music, User } from 'lucide-react';
 import './index.css';
 
 const API_BASE = 'http://localhost:8000/api';
@@ -8,37 +8,34 @@ const API_BASE = 'http://localhost:8000/api';
 function App() {
   const [activeTab, setActiveTab] = useState('search'); // 'search' | 'database'
   
-  // Tab: Database settings
+  // Database State
   const [records, setRecords] = useState([]);
   const [totalRecords, setTotalRecords] = useState(0);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterGender, setFilterGender] = useState('');
-  const [filterAccent, setFilterAccent] = useState('');
-
-  // Tab: Voice Search settings
+  
+  // Search State
   const [uploading, setUploading] = useState(false);
   const [searchResults, setSearchResults] = useState([]);
-  const [uploadedFileUrl, setUploadedFileUrl] = useState(null);
   const [uploadedFileName, setUploadedFileName] = useState('');
   const fileInputRef = useRef(null);
-  
+
+  // Global Audio Player State
+  const [currentTrack, setCurrentTrack] = useState(null); // { url, title, subtitle }
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef(null);
+
   useEffect(() => {
     if (activeTab === 'database') {
       fetchRecords();
     }
-  }, [activeTab, filterGender, filterAccent, searchQuery]);
+  }, [activeTab, filterGender, searchQuery]);
 
   const fetchRecords = async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({
-        limit: 20,
-        offset: 0,
-        search: searchQuery,
-        gender: filterGender,
-        accent: filterAccent
-      });
+      const params = new URLSearchParams({ limit: 20, offset: 0, search: searchQuery, gender: filterGender });
       const response = await axios.get(`${API_BASE}/records?${params}`);
       setRecords(response.data.records);
       setTotalRecords(response.data.total);
@@ -52,14 +49,13 @@ function App() {
     const file = event.target.files[0];
     if (!file) return;
 
-    if (uploadedFileUrl) {
-      URL.revokeObjectURL(uploadedFileUrl);
-    }
-    
-    setUploadedFileUrl(URL.createObjectURL(file));
     setUploadedFileName(file.name);
-
     setUploading(true);
+    
+    // Auto play uploaded file
+    const objectUrl = URL.createObjectURL(file);
+    playTrack({ url: objectUrl, title: file.name, subtitle: 'Uploaded Sample' });
+
     const formData = new FormData();
     formData.append('file', file);
     
@@ -75,219 +71,220 @@ function App() {
     setUploading(false);
   };
 
+  const playTrack = (track) => {
+    if (currentTrack?.url === track.url) {
+      // Toggle play/pause if same track
+      if (isPlaying) {
+        audioRef.current.pause();
+        setIsPlaying(false);
+      } else {
+        audioRef.current.play();
+        setIsPlaying(true);
+      }
+    } else {
+      // Play new track
+      setCurrentTrack(track);
+      setIsPlaying(true);
+      setTimeout(() => {
+        if (audioRef.current) {
+          audioRef.current.play();
+        }
+      }, 50);
+    }
+  };
+
+  const formatAudioUrl = (filePath) => {
+    return `http://localhost:8000/data/${filePath.replace(/\\/g, '/')}`;
+  };
+
   return (
-    <>
-      <div className="bg-blobs">
-        <div className="blob-1"></div>
-        <div className="blob-2"></div>
-      </div>
-      
-      <div className="container fade-in">
-        <aside className="glass-panel" style={{ height: 'fit-content' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '2rem' }}>
-            <Mic2 size={32} color="#3b82f6" />
-            <h2 style={{ marginBottom: 0 }}>VoiceFinder</h2>
+    <div className="app-container">
+      {/* Hidden Global Audio Element */}
+      <audio 
+        ref={audioRef} 
+        src={currentTrack?.url} 
+        className="hidden-audio"
+        onEnded={() => setIsPlaying(false)}
+        onPause={() => setIsPlaying(false)}
+        onPlay={() => setIsPlaying(true)}
+      />
+
+      {/* Sidebar Navigation */}
+      <aside className="sidebar">
+        <div className="logo-section">
+          <div className="logo-icon">
+            <CloudRain size={24} strokeWidth={2.5} />
           </div>
-          
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '2rem' }}>
-            <button 
-              className={activeTab === 'search' ? '' : 'glass-panel'} 
-              style={activeTab !== 'search' ? { background: 'transparent', border: 'none', boxShadow: 'none' } : { width: '100%' }}
-              onClick={() => setActiveTab('search')}
-            >
-              <Search size={18} /> Semantic Search
-            </button>
-            <button 
-              className={activeTab === 'database' ? '' : 'glass-panel'} 
-              style={activeTab !== 'database' ? { background: 'transparent', border: 'none', boxShadow: 'none' } : { width: '100%' }}
-              onClick={() => setActiveTab('database')}
-            >
-              <Database size={18} /> Voice Database
+          <div className="logo-text">VoiceCloud</div>
+        </div>
+
+        <div className="profile-section">
+          <div className="profile-greeting">Hi,</div>
+          <div className="profile-name">Researcher</div>
+        </div>
+
+        <div className="nav-menu">
+          <div className="nav-menu-title">Menu</div>
+          <div 
+            className={`nav-item ${activeTab === 'search' ? 'active' : ''}`}
+            onClick={() => setActiveTab('search')}
+          >
+            <Home size={20} /> Semantic Search
+          </div>
+          <div 
+            className={`nav-item ${activeTab === 'database' ? 'active' : ''}`}
+            onClick={() => setActiveTab('database')}
+          >
+            <Database size={20} /> Voice Database
+          </div>
+        </div>
+
+        {/* Global Player Widget placed at bottom left */}
+        <div className="global-player-widget" style={{ opacity: currentTrack ? 1 : 0.5, pointerEvents: currentTrack ? 'auto' : 'none' }}>
+          <div className="player-info">
+            <div className="player-avatar">
+              <Disc size={24} className={isPlaying ? 'spin-anim' : ''} style={{ animation: isPlaying ? 'spin 4s linear infinite' : 'none' }} />
+            </div>
+            <div className="player-details">
+              <h4>{currentTrack ? currentTrack.title : 'No track'}</h4>
+              <p>{currentTrack ? currentTrack.subtitle : 'Select audio to play'}</p>
+            </div>
+          </div>
+          <div className="player-controls">
+            <button className="play-btn-main" onClick={() => currentTrack && playTrack(currentTrack)}>
+              {isPlaying ? <Pause fill="currentColor" size={20} /> : <Play fill="currentColor" size={20} style={{ marginLeft: '4px' }}/>}
             </button>
           </div>
+        </div>
+      </aside>
 
-          {activeTab === 'database' && (
-            <div className="filters fade-in">
-              <h3 style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Filter size={18} /> Filters
-              </h3>
-              <div className="input-group">
-                <label>Speaker ID</label>
-                <input 
-                  type="text" 
-                  placeholder="e.g. p225"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
-              <div className="input-group">
-                <label>Gender</label>
-                <select value={filterGender} onChange={(e) => setFilterGender(e.target.value)}>
-                  <option value="">All</option>
-                  <option value="female">Female</option>
-                  <option value="male">Male</option>
-                </select>
-              </div>
-              <div className="input-group">
-                <label>Accent</label>
-                <select value={filterAccent} onChange={(e) => setFilterAccent(e.target.value)}>
-                  <option value="">All</option>
-                  <option value="English">English</option>
-                  <option value="Scottish">Scottish</option>
-                  <option value="Irish">Irish</option>
-                  <option value="American">American</option>
-                </select>
-              </div>
-            </div>
-          )}
-        </aside>
-
-        <main>
-          {activeTab === 'search' ? (
-            <div className="fade-in">
-              <h1>Voice Similarity Search</h1>
-              <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem' }}>
-                Upload a `.wav` file to extract acoustic features (MFCC, Spectral Contrast, Chroma) and find the top 5 most similar voices in the database.
-              </p>
-
-              <div className="glass-panel" style={{ marginBottom: '2rem' }}>
-                <div 
-                  className={`dropzone ${uploading ? 'active' : ''}`}
-                  onClick={(e) => {
-                    // Prevent triggering upload when interacting with the audio player
-                    if (e.target.tagName !== 'AUDIO' && !e.target.closest('audio')) {
-                      fileInputRef.current.click();
-                    }
-                  }}
-                >
-                  <input 
-                    type="file" 
-                    ref={fileInputRef} 
-                    style={{ display: 'none' }} 
-                    accept=".wav"
-                    onChange={handleFileUpload}
-                  />
-                  {uploading ? (
-                    <>
-                      <div className="loading-spinner"></div>
-                      <h3>Processing {uploadedFileName}...</h3>
-                      <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>Extracting vectors and searching...</p>
-                    </>
-                  ) : uploadedFileUrl ? (
-                    <>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--accent-primary)' }}>
-                        <UploadCloud size={24} />
-                        <h3 style={{ margin: 0, wordBreak: 'break-all' }}>{uploadedFileName}</h3>
-                      </div>
-                      <audio 
-                        controls 
-                        src={uploadedFileUrl} 
-                        style={{ width: '80%', margin: '1rem 0' }}
-                        onClick={(e) => e.stopPropagation()} 
-                      />
-                      <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-                        Click anywhere here to upload a different file
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      <UploadCloud />
-                      <h3>Click or drag .wav file here</h3>
-                      <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-                        File will be analyzed in-memory and discarded.
-                      </p>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {searchResults.length > 0 && (
-                <div className="fade-in">
-                  <h2>Top 5 Matches</h2>
-                  <div className="records-feed">
-                    {searchResults.map((res, index) => (
-                      <div className="record-card fade-in" style={{ animationDelay: `${index * 0.1}s` }} key={res.file_id}>
-                        <div className="record-header">
-                          <div className="record-title">
-                            <div className="avatar">#{index + 1}</div>
-                            <div>
-                              <h3>{res.speaker}</h3>
-                              <span className="badge">{res.gender}</span>
-                            </div>
-                          </div>
-                          <div className="similarity-score">
-                            {(res.similarity * 100).toFixed(2)}% Match
-                          </div>
-                        </div>
-                        
-                        <div className="similarity-bar-container">
-                          <div className="similarity-bar" style={{ width: `${res.similarity * 100}%` }}></div>
-                        </div>
-
-                        <div className="metadata-grid">
-                          <div className="metadata-item">
-                            <span className="metadata-label">Accent</span>
-                            <span className="metadata-value">{res.accent || 'N/A'}</span>
-                          </div>
-                          <div className="metadata-item">
-                            <span className="metadata-label">Age</span>
-                            <span className="metadata-value">{res.age || 'N/A'}</span>
-                          </div>
-                        </div>
-                        
-                        <audio controls src={`http://localhost:8000/data/${res.file_path.replace(/\\/g, '/')}`} />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="fade-in">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-                <h1>Database Feed</h1>
-                <span className="badge">{totalRecords} Records Found</span>
-              </div>
+      {/* Main View Area */}
+      <main className="main-content">
+        {activeTab === 'search' ? (
+          <div className="fade-in">
+            <div className="hero-banner">
+              <h1>Listen to the most similar voices in the database</h1>
+              <p>Upload a voice sample to extract acoustic features (MFCC, Spectral Contrast, Chroma) and find exact biometric matches instantly.</p>
               
-              {loading ? (
-                <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem' }}>
-                  <div className="loading-spinner" style={{ width: '40px', height: '40px' }}></div>
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                style={{ display: 'none' }} 
+                accept=".wav"
+                onChange={handleFileUpload}
+              />
+              <button 
+                className="btn-primary" 
+                onClick={() => fileInputRef.current.click()}
+                disabled={uploading}
+              >
+                {uploading ? <div className="loader"></div> : <UploadCloud size={20} />}
+                {uploading ? 'Processing Audio...' : 'Upload Sample'}
+              </button>
+            </div>
+
+            {searchResults.length > 0 && (
+              <>
+                <div className="section-header">
+                  <h2 className="section-title">Top Trending Matches</h2>
+                  <span className="section-link">Explore more</span>
                 </div>
-              ) : (
-                <div className="records-feed">
-                  {records.map(record => (
-                    <div className="record-card" key={record.file_id}>
-                      <div className="record-header">
-                        <div className="record-title">
-                          <div className="avatar">{record.speaker.substring(0, 2)}</div>
-                          <div>
-                            <h3>{record.speaker}</h3>
-                            <span className="badge">{record.gender}</span>
+                
+                <div className="trending-list">
+                  {searchResults.map((res, index) => {
+                    const isCurrentPlaying = currentTrack?.url === formatAudioUrl(res.file_path);
+                    return (
+                      <div className="track-item fade-in" style={{ animationDelay: `${index * 0.1}s` }} key={res.file_id}>
+                        <div className="track-index">{(index + 1).toString().padStart(2, '0')}</div>
+                        <div className="track-img">
+                          <User size={24} />
+                        </div>
+                        <div className="track-info">
+                          <div className="track-title">{res.speaker}</div>
+                          <div className="track-subtitle">
+                            <span className="similarity-badge">{(res.similarity * 100).toFixed(2)}% Match</span>
+                            <span>• {res.gender} • {res.accent || 'Unknown'} Accent</span>
                           </div>
                         </div>
+                        <button 
+                          className="play-btn-small"
+                          onClick={() => playTrack({
+                            url: formatAudioUrl(res.file_path),
+                            title: res.speaker,
+                            subtitle: `${(res.similarity * 100).toFixed(1)}% Match`
+                          })}
+                        >
+                          {isCurrentPlaying && isPlaying ? <Pause size={16} fill="white" /> : <Play size={16} fill="white" style={{ marginLeft: '2px' }} />}
+                        </button>
                       </div>
-                      
-                      <div className="metadata-grid">
-                        <div className="metadata-item">
-                          <span className="metadata-label">Accent</span>
-                          <span className="metadata-value">{record.accent || 'N/A'}</span>
-                        </div>
-                        <div className="metadata-item">
-                          <span className="metadata-label">Age</span>
-                          <span className="metadata-value">{record.age || 'N/A'}</span>
-                        </div>
-                      </div>
-                      
-                      <audio controls src={`http://localhost:8000/data/${record.file_path.replace(/\\/g, '/')}`} />
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
-              )}
+              </>
+            )}
+          </div>
+        ) : (
+          <div className="fade-in">
+            <div className="section-header">
+              <h1 className="section-title" style={{ fontSize: '2rem' }}>Voice Database</h1>
+              <span className="section-link">{totalRecords} Records</span>
             </div>
-          )}
-        </main>
-      </div>
-    </>
+
+            <div className="filters-bar fade-in">
+              <input 
+                type="text" 
+                className="filter-input" 
+                placeholder="Search by Speaker ID..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              <select 
+                className="filter-input" 
+                value={filterGender} 
+                onChange={(e) => setFilterGender(e.target.value)}
+                style={{ flex: '0 0 200px' }}
+              >
+                <option value="">All Genders</option>
+                <option value="female">Female</option>
+                <option value="male">Male</option>
+              </select>
+            </div>
+            
+            {loading ? (
+              <div className="loader orange"></div>
+            ) : (
+              <div className="artist-grid">
+                {records.map((record) => {
+                  const isCurrentPlaying = currentTrack?.url === formatAudioUrl(record.file_path);
+                  return (
+                    <div 
+                      className="artist-card fade-in" 
+                      key={record.file_id}
+                      onClick={() => playTrack({
+                        url: formatAudioUrl(record.file_path),
+                        title: record.speaker,
+                        subtitle: `${record.gender} Voice`
+                      })}
+                    >
+                      <div className="artist-avatar">
+                        {record.speaker.substring(0, 2).toUpperCase()}
+                      </div>
+                      <div className="artist-info">
+                        <h4>{record.speaker}</h4>
+                        <p>{record.gender} • {record.age ? `${record.age} yrs` : 'N/A'}</p>
+                        {isCurrentPlaying && isPlaying && (
+                          <p style={{ color: 'var(--primary-orange)', fontWeight: 'bold', marginTop: '4px' }}>Playing...</p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </main>
+    </div>
   );
 }
 
