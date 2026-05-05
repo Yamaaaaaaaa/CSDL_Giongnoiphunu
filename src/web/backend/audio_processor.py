@@ -93,3 +93,8 @@ def _analyze_signal(y: np.ndarray, sr: int) -> dict:
 def analyze_from_path(file_path: str) -> dict:
     y, sr = librosa.load(file_path, sr=TARGET_SR, mono=True)
     return _analyze_signal(y, sr)
+
+
+def analyze_from_bytes(file_bytes: bytes) -> dict:
+    y, sr = librosa.load(io.BytesIO(file_bytes), sr=TARGET_SR, mono=True)
+    return _analyze_signal(y, sr)

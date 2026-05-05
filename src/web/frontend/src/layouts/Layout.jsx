@@ -19,6 +19,7 @@ function Layout() {
   const [uploadedFileName, setUploadedFileName] = useState('');
   const [uploadedFileUrl, setUploadedFileUrl] = useState(null);
   const fileInputRef = useRef(null);
+  const uploadedFileRef = useRef(null); // keeps the raw File object
 
   // Global Audio Player State
   const [currentTrack, setCurrentTrack] = useState(null);
@@ -46,6 +47,7 @@ function Layout() {
 
     setUploadedFileName(file.name);
     setUploading(true);
+    uploadedFileRef.current = file; // store raw File for later analysis
 
     const objectUrl = URL.createObjectURL(file);
     setUploadedFileUrl(objectUrl);
@@ -173,6 +175,7 @@ function Layout() {
           uploadedFileUrl,
           searchResults,
           fileInputRef,
+          uploadedFileRef,
           onFileUpload: handleFileUpload,
           // Database props
           records,

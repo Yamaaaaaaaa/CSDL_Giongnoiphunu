@@ -47,46 +47,51 @@ function simColor(pct) {
 export default function SearchPage() {
   const {
     uploading, uploadedFileName, uploadedFileUrl,
-    searchResults, fileInputRef,
+    searchResults, fileInputRef, uploadedFileRef,
     currentTrack, isPlaying,
     onFileUpload, onPlayTrack, formatAudioUrl,
   } = useOutletContext();
 
   /* ── Compare state ── */
   const [selectedResult, setSelectedResult] = useState(null);
-  const [queryWaveform, setQueryWaveform]   = useState(null);
-  const [resultAnalysis, setResultAnalysis] = useState(null);
+  const [queryAnalysis, setQueryAnalysis]   = useState(null);  // from /api/analyze-upload
+  const [resultAnalysis, setResultAnalysis] = useState(null);  // from /api/records/{id}/analyze
   const [loadingCmp, setLoadingCmp]         = useState(false);
   const [errorCmp, setErrorCmp]             = useState(null);
 
   /* Reset compare section when new search results come in */
   useEffect(() => {
     setSelectedResult(null);
-    setQueryWaveform(null);
+    setQueryAnalysis(null);
     setResultAnalysis(null);
   }, [searchResults]);
 
   const handleResultClick = async (res) => {
-    /* Toggle off if same item clicked */
     if (selectedResult?.file_id === res.file_id) {
       setSelectedResult(null);
       setResultAnalysis(null);
       return;
     }
-
     setSelectedResult(res);
     setLoadingCmp(true);
     setErrorCmp(null);
     setResultAnalysis(null);
 
     try {
-      /* Decode query waveform once */
-      const [wf, anaRes] = await Promise.all([
-        queryWaveform ? Promise.resolve(queryWaveform) : decodeWaveform(uploadedFileUrl),
+      const calls = [
         axios.get(`${API_BASE}/records/${res.file_id}/analyze`),
-      ]);
-      if (wf && !queryWaveform) setQueryWaveform(wf);
+      ];
+      // Analyze uploaded query file only once
+      if (!queryAnalysis && uploadedFileRef?.current) {
+        const fd = new FormData();
+        fd.append('file', uploadedFileRef.current);
+        calls.push(axios.post(`${API_BASE}/analyze-upload`, fd, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        }));
+      }
+      const [anaRes, qAnaRes] = await Promise.all(calls);
       setResultAnalysis(anaRes.data);
+      if (qAnaRes) setQueryAnalysis(qAnaRes.data);
     } catch (e) {
       setErrorCmp(e.message);
     }
@@ -229,9 +234,9 @@ export default function SearchPage() {
               {/* Row 1: Waveforms */}
               <div className="compare-columns" style={{ marginBottom: '1.25rem' }}>
                 <ChartCard title="① Waveform — Query">
-                  {queryWaveform
-                    ? <WaveformChart data={queryWaveform} />
-                    : <div style={{ height: 120, display:'flex', alignItems:'center', justifyContent:'center', color:'#aaa', fontSize:'0.85rem' }}>Could not decode audio</div>}
+                  {queryAnalysis
+                    ? <WaveformChart data={queryAnalysis.waveform} />
+                    : <div style={{ height: 120, display:'flex', alignItems:'center', justifyContent:'center', color:'#aaa', fontSize:'0.85rem', background:'#12121a', borderRadius:'8px' }}>Loading…</div>}
                 </ChartCard>
                 <ChartCard title="① Waveform — Result">
                   <WaveformChart data={resultAnalysis.waveform} />
@@ -241,9 +246,9 @@ export default function SearchPage() {
               {/* Row 2: Mel Spectrogram */}
               <div className="compare-columns" style={{ marginBottom: '1.25rem' }}>
                 <ChartCard title="② Mel Spectrogram — Query">
-                  <div style={{ height: 140, display:'flex', alignItems:'center', justifyContent:'center', color:'#aaa', fontSize:'0.85rem', background:'#12121a', borderRadius:'8px' }}>
-                    Mel Spectrogram requires server processing
-                  </div>
+                  {queryAnalysis
+                    ? <SpectrogramChart data={queryAnalysis.mel_spectrogram} />
+                    : <div style={{ height: 140, display:'flex', alignItems:'center', justifyContent:'center', color:'#aaa', fontSize:'0.85rem', background:'#12121a', borderRadius:'8px' }}>Loading…</div>}
                 </ChartCard>
                 <ChartCard title="② Mel Spectrogram — Result">
                   <SpectrogramChart data={resultAnalysis.mel_spectrogram} />
@@ -253,9 +258,9 @@ export default function SearchPage() {
               {/* Row 3: MFCC */}
               <div className="compare-columns" style={{ marginBottom: '1.25rem' }}>
                 <ChartCard title="③ MFCC Matrix — Query">
-                  <div style={{ height: 160, display:'flex', alignItems:'center', justifyContent:'center', color:'#aaa', fontSize:'0.85rem', background:'#12121a', borderRadius:'8px' }}>
-                    MFCC Matrix requires server processing
-                  </div>
+                  {queryAnalysis
+                    ? <MFCCChart data={queryAnalysis.mfcc_matrix} />
+                    : <div style={{ height: 160, display:'flex', alignItems:'center', justifyContent:'center', color:'#aaa', fontSize:'0.85rem', background:'#12121a', borderRadius:'8px' }}>Loading…</div>}
                 </ChartCard>
                 <ChartCard title="③ MFCC Matrix — Result">
                   <MFCCChart data={resultAnalysis.mfcc_matrix} />
@@ -265,9 +270,9 @@ export default function SearchPage() {
               {/* Row 4: Feature Vector */}
               <div className="compare-columns" style={{ marginBottom: '1.25rem' }}>
                 <ChartCard title="④ Feature Vector 99D — Query" light>
-                  <div style={{ height: 200, display:'flex', alignItems:'center', justifyContent:'center', color:'var(--text-gray)', fontSize:'0.85rem' }}>
-                    Feature vector available after server analysis
-                  </div>
+                  {queryAnalysis
+                    ? <FeatureVectorChart embedding={queryAnalysis.embedding} />
+                    : <div style={{ height: 200, display:'flex', alignItems:'center', justifyContent:'center', color:'var(--text-gray)', fontSize:'0.85rem' }}>Loading…</div>}
                 </ChartCard>
                 <ChartCard title="④ Feature Vector 99D — Result" light>
                   <FeatureVectorChart embedding={resultAnalysis.embedding} />

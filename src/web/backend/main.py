@@ -6,7 +6,7 @@ from typing import List, Optional
 import os
 
 from database import fetch_records, search_similar_voices, fetch_embedding, search_by_embedding
-from audio_processor import process_audio_file, analyze_from_path
+from audio_processor import process_audio_file, analyze_from_path, analyze_from_bytes
 
 app = FastAPI(title="Voice Similarity API")
 
@@ -64,6 +64,19 @@ def get_records(
         records, total = fetch_records(limit, offset, search, gender, accent)
         return {"total": total, "records": records}
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/analyze-upload")
+async def analyze_upload(file: UploadFile = File(...)):
+    """Analyze an uploaded WAV file: returns waveform, mel spectrogram, MFCC matrix, 99D embedding."""
+    if not file.filename.endswith(".wav"):
+        raise HTTPException(status_code=400, detail="Only .wav files are supported")
+    try:
+        file_bytes = await file.read()
+        return analyze_from_bytes(file_bytes)
+    except Exception as e:
+        import traceback; traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 
