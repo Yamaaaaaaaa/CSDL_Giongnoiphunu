@@ -4,6 +4,7 @@ import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom'
 import Layout from './layouts/Layout.jsx';
 import SearchPage from './pages/SearchPage.jsx';
 import DatabasePage from './pages/DatabasePage.jsx';
+import ComparePage from './pages/ComparePage.jsx';
 import './index.css';
 
 const router = createBrowserRouter([
@@ -13,7 +14,7 @@ const router = createBrowserRouter([
     children: [
       { index: true, element: <SearchPage /> },
       { path: 'database', element: <DatabasePage /> },
-      // Fallback: redirect unknown paths to home
+      { path: 'compare', element: <ComparePage /> },
       { path: '*', element: <Navigate to="/" replace /> },
     ],
   },

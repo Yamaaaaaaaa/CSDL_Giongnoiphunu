@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { CloudRain, Home, Database, Disc, Play, Pause } from 'lucide-react';
+import { CloudRain, Home, Database, Disc, Play, Pause, Scale } from 'lucide-react';
 
 const API_BASE = 'http://localhost:8000/api';
 
@@ -128,6 +128,12 @@ function Layout() {
             className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
           >
             <Database size={20} /> Voice Database
+          </NavLink>
+          <NavLink
+            to="/compare"
+            className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
+          >
+            <Scale size={20} /> Compare Files
           </NavLink>
         </nav>
 
